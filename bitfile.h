@@ -66,7 +66,7 @@ public:
 			rewind();
 		}
 		
-		return !ios::failbit;
+		return !file.fail();
 	}
 	
 	unsigned char get_byte()

@@ -11,6 +11,8 @@
 
 using namespace std;
 
+
+
 template <class type = long long, int chunk_size = 8>
 class varint_base {
 	int chunk;
@@ -121,6 +123,38 @@ public:
 };
 
 typedef varint_base<> varint;
+
+
+
+template <class type = long long, int chunk_size = 8>
+class fvarint_base {
+	
+	int chunk;
+	
+public:
+	
+	type data;
+	
+	void init(type d = 0)
+	{
+		data = d;
+		chunk = 0;
+	}
+	
+	void init_var()
+	{
+		init(0);
+	}
+	
+	template <class gen>
+	void init_int(gen n)
+	{
+		
+	}
+};
+
+typedef fvarint_base<> fvarint;
+
 
 
 #endif /* varint_h */

@@ -13,84 +13,56 @@
 
 int main(int argc, const char * argv[]) {
 	
-	/*
-	unsigned long long fib_a = 1;
-	unsigned long long fib_b = 1;
-	unsigned long long sum = 0;
-	
-	cout << 1 << endl;
-	for (int j = 0; j < 100; ++j) {
-		//cout << (unsigned long long)fib_a << endl;
-		sum += fib_a;
-		unsigned long long tmp = fib_a + fib_b;
-		fib_b = fib_a;
-		fib_a = tmp;
-		cout << j << ": " << sum << endl;
-	}
-	 */
-	
-	// 44 bytes (40 bytes with 2b)
-	// The rain in Spain stays mainly in the plain.
+	string in_ext;
+	string file = "COTTAGE"; in_ext = "bmp";
+	//string file = "CLOWN"; in_ext = "bmp";
+	//string file = "ANGELFISH"; in_ext = "bmp";
+	//string file = "ASTRONUT"; in_ext = "bmp";
+	//string file = "TUT"; in_ext = "bmp";
 
-	/*
-	 
-	 0: I am Sam
-     9:
-	 10: Sam I am
-	 19:
-	 20: That Sam-I-am!
-	 35: That Sam-I-am!
-	 50: I do not like
-	 64: that Sam-I-am!
-	 79:
-	 80: Do you like green eggs and ham?
-	 112:
-	 113: I do not like them, Sam-I-am.
-	 143: I do not like green eggs and ham.
-	 
-	 */
-	
-	string file = "turtle";
-	//string file = "Diaspora - text";
-	//string file = "canterburycorpus/asyoulik";
-	//string file = "canterburycorpus/enwik8";
-	//string file = "silesia/mr";
-	//string file = "intro";
-	//string file = "sam_i_am";
-	//string file = "rain_spain";
+	//string file = "Diaspora - text"; in_ext = "txt";
+	//string file = "canterbury_corpus/asyoulik"; in_ext = "txt";
+	//string file = "canterbury_corpus/plrabn12"; in_ext = "txt";
+	//string file = "canterbury_corpus/kennedy"; in_ext = "xls";
+	//string file = "canterbury_corpus/enwik8"; in_ext = "dat";
+	//string file = "canterbury_corpus/alice29"; in_ext = "txt";
+	//string file = "Lenna"; in_ext = "tiff";
+	//string file = "silesia_corpus/mr"; in_ext = "";
+	//string file = "silesia_corpus/sao"; in_ext = "";
+	//string file = "silesia_corpus/dickens"; in_ext = "";
+	//string file = "silesia_corpus/x-ray"; in_ext = "";
+	//string file = "silesia_corpus/webster"; in_ext = "";
+	//string file = "silesia_corpus/nci"; in_ext = "";
+	//string file = "monkey"; in_ext = "tiff";
+	//string file = "sam_i_am"; in_ext = "txt";
+	//string file = "rain_spain"; in_ext = "txt";
 	//string file = "misc1";
-	string ext = "tiff";
 	
-	//string file = "Europa";
-	//string file = "monkey";
-	//string ext = "tiff";
+	string ou_ext = "lzn2";
+	const int dict_size = 1024 * 1024 * 2;
 	
 	cout << "deflating '" + file + "' ..." << endl;
 	
-	if (ext != "") ext = "." + ext;
-	
-	lzns_deflate<false> deflate(
-		"/Users/hephaestus/Desktop/" + file + ext,
-		"/Users/hephaestus/Desktop/" + file + ".lzn"
+	if (in_ext != "") in_ext = "." + in_ext;
+	if (ou_ext != "") ou_ext = "." + ou_ext;
+
+	lzns_deflate<dict_size, false> deflate(
+		"/Users/hephaestus/Desktop/test_files/" + file + in_ext,
+		"/Users/hephaestus/Desktop/test_files/" + file + ou_ext
 	);
 	
-	deflate.close();
+	if (deflate.in_error())
+		return 3;
 	
 	//return 0;
 	
 	cout << "inflating..." << endl;
 	
-	lzns_inflate<false, 1024 * 1024 * 16> inflate(
-		"/Users/hephaestus/Desktop/" + file + ".lzn",
-		"/Users/hephaestus/Desktop/" + file + "_out" + ext,
-		"/Users/hephaestus/Desktop/" + file + ext
+	lzns_inflate<dict_size, false> inflate(
+		"/Users/hephaestus/Desktop/test_files/" + file + ou_ext,
+		"/Users/hephaestus/Desktop/test_files/" + file + "_out" + in_ext,
+		"/Users/hephaestus/Desktop/test_files/" + file + in_ext
 	);
-	
-	inflate.inflate();
-	inflate.close();
-	
-	// abracadabra
-	// 9, 128, 6, 1, 6
 	
 	cout << endl;
 	return 0;
