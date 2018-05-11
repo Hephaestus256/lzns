@@ -13,14 +13,22 @@
 #include <unordered_map>
 #include <deque>
 #include <queue>
+#include <stdio.h>
+#include <string.h>
 
 const int DEFAULT_DICT_SIZE = 1024 * 1024 * 4;
 
-string show(const string s)
+string show(const string s, int len = -1)
 {
 	string ret;
+	size_t l;
 	
-	for (int i = 0; i < s.length(); ++i) {
+	if (len < 0)
+		l = s.length();
+	else
+		l = (size_t)len;
+	
+	for (int i = 0; i < (int)l; ++i) {
 		char c = s[i];
 		
 		if (c < ' ') {
@@ -68,17 +76,6 @@ public:
 		return status == error;
 	}
 	
-	void reserve_header()
-	{
-		out_file.put_string(string(8, char(0)));
-	}
-	
-	void write_header()
-	{
-		out_file.rewind();
-		out_file.put_qword(bucket_ct);
-	}
-	
 	lzns_deflate (string p_inp_file, string p_out_file)
 	{
 		status = begin;
@@ -102,9 +99,8 @@ public:
 		
 		init();
 		deflate();
-		
-		status = complete;
 		close();
+		status = complete;
 	}
 	
 	void advance_bucket()
@@ -116,7 +112,7 @@ public:
 	{
 		que.push(s);
 		
-		if (que.size() > dict_size) {
+		if (que.size() >= dict_size) { // ensure that offset limit is dict_size - 1
 			string str = que.front();
 
 			for (int i = 0; i < 2; ++i) {
@@ -167,127 +163,13 @@ public:
 		iter->second = bucket_ct - 1;
 	}
 	
-	bool find_part(string& curr, string& next)
-	{
-		unordered_map<string, int>::iterator f;
-		string s1, s2;
-		
-		if (next == "") {
-			s1 = inp_file.get_byte();
-		} else {
-			s1 = next;
-		}
-		
-		s2 = inp_file.get_byte();
-		f = dic.find(s1 + s2);
-		
-		if (f == dic.end()) {
-			curr = s1;
-			next = s2;
-			return false;
-		} else {
-			curr = s1 + s2;
-			next = "";
-			return true;
-		}
-	}
-	
-	string find_longest_rep()
-	{
-		string s = next;
-		char c;
-		
-		do {
-			c = inp_file.get_byte();
-			s += string(1, c);
-		} while (dic.find(s) != dic.end());
-		
-		next = string(1, c);
-		return s.substr(0, s.length() - 1);
-	}
-	
 	void init()
 	{
 		if (disp)
 			cout << "Initializing" << endl;
 		
-		//reserve_header();
-		
 		if (disp)
 			cout << "Done" << endl;
-	}
-	
-	// deflate lzns2
-	void deflate_lzns2()
-	{
-		unordered_map<string, int>::iterator f, prev_f, er;
-
-		string a = string(1, inp_file.get_byte());
-		stack.push_front(a);
-		
-		string b = string(1, inp_file.get_byte());
-		stack.push_front(b);
-
-		cout << "init a: " << show(a) << endl;
-		cout << "init b: " << show(b) << endl;
-
-		while (!inp_file.at_end()) {
-			string s = stack[1] + stack[0];
-			f = dic.find(s);
-			
-			if (f != dic.end()) {
-				string e = stack[2] + stack[1];
-				er = dic.find(e);
-				if (er != dic.end())
-					dic.erase(er);
-				
-				stack.pop_front();
-				stack.pop_front();
-				stack.push_front(s);
-
-				cout << "found: " << show(s) << " " << f->second << endl;
-				//cout << "erasing: " << show(e) << endl;
-			} else {
-				insert(s);
-				string n = string(1, inp_file.get_byte());
-				stack.push_front(n);
-				cout << "new: " << show(n) << endl;
-			}
-		}
-		stack.pop_front();
-		
-		cout << "-----------------------------" << endl;
-		
-		for (int i = (int)stack.size() - 1; i >= 0; --i) {
-			cout << i + 1 << ": " << show(stack[i]) << endl;
-		}
-	}
-	
-	void rewrite_literal(const string lit, const string nex)
-	{
-		string a, b;
-		dic_iter f;
-		
-		if (lit.length() != 1) return;
-		
-		for (int i = 0; i < lit.length() - 1; ++i) {
-			a = string(1, lit[i]);
-			b = string(1, lit[i + 1]);
-			if (!insert(a + b, f)) {
-				f->second = -(bucket_ct - 2 + i);
-			}
-			update_queue(a + b);
-		}
-		
-		/*
-		if (!insert(b + nex, f)) {
-			f->second = -(bucket_ct - 2 + (int)lit.length() + 1);
-			update_queue(b + nex);
-		}
-		*/
-		
-		//insert(b + nex);
-		//update_queue(b + nex);
 	}
 	
 	// deflate lzns1
@@ -326,347 +208,6 @@ public:
 		}
 		
 		write_end();
-	}
-	
-	void deflate7()
-	{
-		string curr, prev, prev_s;
-		unordered_map<string, int>::iterator f, prev_f;
-
-		prev_f = dic.end();
-		prev = string(1, inp_file.get_byte());
-
-		while (!inp_file.at_end()) {
-			
-			curr = string(1, inp_file.get_byte());
-
-			if ((f = dic.find(prev + curr)) == dic.end()) {
-				//cout << "prev_s: '" << prev_s << "' s: '" << prev << "'" << endl;
-
-				cout << "       inserting: '" << prev_s + prev << "'" << endl;
-				insert(prev_s + prev, prev_f);
-				
-				prev_s = prev;
-				
-				if (prev_f != dic.end()) {
-					//cout << bucket_ct << ": " << "'" << prev << "': " << prev_f->second << endl;
-				} else {
-					//cout << bucket_ct << ": " << "'" << prev << "'" << endl;
-				}
-				cout << "'" << prev << "'" << endl;
-
-				prev = curr;
-				
-				advance_bucket();
-			} else {
-				//cout << "    ref: " << f->second << endl;
-				prev += curr;
-				prev_f = f;
-			}
-		}
-	}
-	
-	void deflate6()
-	{
-		string curr, prev;
-		unordered_map<string, int>::iterator f;
-		
-		prev = next;
-		
-		while (!inp_file.at_end()) {
-			curr = find_longest_rep();
-			//cout << "prev: '" << prev << "' curr: '" << curr << "'" << endl;
-			
-			if (insert(prev + curr, f)) {
-				cout << bucket_ct << ": " << "'" << prev << "': " << f->second << endl;
-				prev = curr;
-				advance_bucket();
-			} else {
-				cout << "    ref: " << f->second << endl;
-				prev += curr;
-			}
-		}
-	}
-	
-	void deflate5()
-	{
-		string prev, curr, next;
-		unordered_map<string, int>::iterator prev_f, curr_f;
-		
-		reserve_header();
-		
-		while (!inp_file.at_end()) {
-			if (find_part(curr, next)) {
-				cout << "'" << curr << "'" << endl;
-				curr = "";
-			} else {
-				cout << "'" << curr << "'" << endl;
-				//insert(curr + next);
-			}
-			
-			insert(prev + curr);
-			prev = curr;
-			curr = next;
-		}
-	}
-	
-	void deflate_byte_pair()
-	{
-		string prev, curr;
-		unordered_map<string, int>::iterator prev_f, curr_f;
-		
-		reserve_header();
-		
-		while (!inp_file.at_end()) {
-			// get current 2-byte string
-			curr += inp_file.get_byte();
-			if (curr.length() > 2)
-				curr = curr.substr(1, 2);
-			
-			// lookup current 2-byte string
-			if (curr.length() > 1) {
-				curr_f = dic.find(curr);
-				
-				if (
-					curr_f != dic.end()
-					&& bucket_ct - curr_f->second >= 1000000 * 0 + 128 * 1 + 16384 * 0) {
-					
-					dic.erase(curr_f);
-					curr_f = dic.end();
-				}
-			} else {
-				curr_f = dic.end();
-			}
-			
-			if (curr.length() > 1) {
-				if (curr_f == dic.end()) {
-					if (prev_f == dic.end()) { // a,b,c
-						string s = curr.substr(0, 1);
-						insert(prev);
-						cout << "lit '" << s << "'" << endl;
-						write_literal(s);
-					} else {								// ab,c
-						//update(prev_f);
-					}
-				} else {
-					if (prev_f == dic.end()) { // a,bc
-						int offset = bucket_ct - curr_f->second;
-						write_reference(offset, "");
-						update(curr_f);
-						cout << "ref '" << curr << "' " << offset << endl;
-						curr = "";
-					} else {								 // ab,bc
-						curr_f = dic.end();
-					}
-				}
-			}
-			
-			prev = curr;
-			prev_f = curr_f;
-		}
-	}
-	
-	void deflate4()
-	{
-		string prev, curr;
-		unordered_map<string, int>::iterator prev_f, curr_f;
-
-		reserve_header();
-
-		while (!inp_file.at_end()) {
-			// get current 2-byte string
-			curr += inp_file.get_byte();
-			if (curr.length() > 2)
-				curr = curr.substr(1, 2);
-			
-			// lookup current 2-byte string
-			if (curr.length() > 1) {
-				curr_f = dic.find(curr);
-			}
-			
-			// parse cases
-			//cout << "prev: '" << prev << "' curr: '" << curr << "' case: " << endl;
-			if (prev_f == dic.end()) {
-				if (curr_f == dic.end()) { // a,b,c
-					if (prev.length() > 1) {
-						insert(prev);
-						string s = prev.substr(1, 1);
-						cout << "literal: '" << s << "'" << endl;
-						write_literal(s);
-					}
-					//cout << "a,b,c" << endl;
-				} else if (curr.length() > 1) { // a,bc
-					int offset = bucket_ct - curr_f->second;
-					cout << "ref    : '" << curr << "' offset: " << offset << endl;
-					write_reference(offset, "");
-					//cout << "a,bc" << endl;
-					curr = "";
-					//curr_f = dic.end();
-				}
-			} else { // ab,c (& ab,bc)
-				update(prev_f);
-				//cout << "ab,c" << endl;
-				curr_f = dic.end();
-			}
-			cout << endl;
-			
-			// curr to previous
-			prev_f = curr_f;
-			prev = curr;
-		}
-	}
-	
-	void deflate3()
-	{
-		string prev, curr;
-		unordered_map<string, int>::iterator f;
-		unordered_map<string, int>::iterator prev_f;
-		int sec = -1, prev_sec = -1;
-		
-		reserve_header();
-		
-		while (!inp_file.at_end()) {
-			curr += inp_file.get_byte();
-			if (curr.length() > 2)
-				curr = curr.substr(1, 2);
-				
-			if (curr.length() == 2) {
-				f = dic.find(curr);
-				advance_bucket();
-
-				if (f == dic.end()) {
-					cout << "literal: '" << curr.substr(0, 1) << "'" << endl;
-					write_literal(curr.substr(0, 1));
-					sec = -1;
-				} else {
-					int offset = bucket_ct - f->second;
-					
-					if (offset < 1 * 128 + 0 * 16384) {
-						cout << "ref: '" << curr << "' " << offset << endl;
-						write_reference(offset, "");
-						prev = curr = "";
-						sec = bucket_ct + 0;
-					} else {
-						cout << "literal2: '" << curr.substr(0, 1) << "'" << endl;
-						write_literal(curr.substr(0, 1));
-						sec = bucket_ct + 1;
-					}
-					
-					//f->second = bucket_ct - 0;
-					//advance_bucket();
-					//dic.erase(f);
-				}
-			}
-			
-			if (prev.length() == 2) {
-				//if (f == dic.end())
-				dic.insert(pair<string, int>(prev, bucket_ct));
-				
-				if (prev_f != dic.end())
-					prev_f->second = prev_sec;
-			}
-			
-			prev_f = f;
-			prev = curr;
-			prev_sec = sec;
-		}
-	}
-	
-	void deflate2()
-	{
-		string prev, curr;
-		string s, prev_s;
-		
-		reserve_header();
-
-		prev = curr = inp_file.get_byte();
-		write_literal(curr);
-		bucket_ct++;
-		cout << bucket_ct << " literal: '" << curr << "'" << endl;
-
-		while (!inp_file.at_end()) {
-			unordered_map<string, int>::iterator f ;
-			curr = inp_file.get_byte();
-			s = prev + curr;
-			f = dic.find(s);
-			
-			if (f != dic.end() && prev_s != "") {
-				int offset = bucket_ct - f->second;
-				write_reference(offset + 1, "");
-				cout << bucket_ct << " ref: '" << s << "'" << endl;
-				prev_s = s = "";
-				bucket_ct++;
-			}
-			
-			if (prev_s.length() > 1) {
-				dic.insert(pair<string, int>(prev_s, bucket_ct));
-				cout << "     inserting: '" << prev_s << "'" << endl;
-			}
-			
-			/*
-			cout << "      searching for: '" << s << "'" << endl;
-
-			if (prev_s.length() > 1) {
-				if (f == dic.end()) {
-					dic.insert(pair<string, int>(prev_s, bucket_ct));
-					//cout << "     inserting: '" << prev_s << "'" << endl;
-				} else {
-					cout << "      found: '" << s << "'" << endl;
-
-					int offset = bucket_ct - f->second;
-					
-					if (offset < 128) {
-						//f->second = bucket_ct;
-						cout << bucket_ct << " found: '" << prev_s << "' " << offset << endl;
-						write_reference(offset + 1);
-						curr = "";
-						prev_s = "";
-						bucket_ct++;
-					} else {
-						f->second = bucket_ct;
-					}
-				}
-			}
-			*/
-			
-			//if (prev_s != "" && s != "") {
-			if (prev_s != "") {
-				cout << bucket_ct << " literal: '" << curr << "'" << endl;
-				write_literal(curr);
-				bucket_ct++;
-			}
-			
-			prev = curr;
-			prev_s = s;
-		}
-		
-		close();
-	}
-	
-	void write_literal_orig(string s)
-	{
-		if (disp)
-			cout << bucket_ct << ": literal: " << show(s) << endl;
-		
-		for (int i = 0; i < s.length(); ++i) {
-			out_file.put_bit(false); // false = literal
-			out_file.put_byte(s[i]);
-			advance_bucket();
-			//update_queue(s);
-			//update_queue(string(1, s[i]));
-			//update_queue(s, dic.end());
-		}
-		
-		block_mode(false);
-
-	}
-	
-	void write_end_orig()
-	{
-		if (disp)
-			cout << "writing end" << endl;
-		out_file.put_bit(true); // true = reference
-		out_file.put_varint(0);
 	}
 	
 	void outp_refs()
@@ -781,81 +322,9 @@ public:
 		return true;
 	}
 	
-	bool write_reference_orig(
-						 unordered_map<string, int>::iterator prev_f,
-						 unordered_map<string, int>::iterator f,
-						 string s)
-	{
-		int offset ;
-		bool len;
-		bool ret;
-		
-		if (prev_f->second <= 0) {
-			offset = bucket_ct + prev_f->second;
-			len = true; // length = 2
-			//if (disp) cout << "len 2 - ";
-		} else {
-			offset = bucket_ct - prev_f->second;
-			len = false; // length = 1
-			//if (disp) cout << "len 1 - ";
-		}
-		
-		string v = varint::int_to_string(offset);
-		
-		assert(offset >= 0);
-		
-		if (true
-			//&& v.length() <= s.length()
-			//&&
-			//&& offset < dict_size
-			) { // worth it
-			//if (s.length() != 1)
-			
-			out_file.put_bit(true); // true = reference
-			out_file.put_varint(offset);
-			
-			//*
-			if (len) { // length = 2
-				if (s.length() > 2) {
-					out_file.put_bit(len);
-				}
-			} else { // length = 1
-				//if (s.length() > 1) {
-				out_file.put_bit(len);
-				//}
-			}
-			//*/
-			
-			if (disp)
-				cout << bucket_ct << ":			" << show(s);
-			
-			if (disp)
-				cout << " " << offset << endl;
-			
-			//if (s.length())
-			//out_file.put_bit(len);
-			advance_bucket();
-			//update_queue(f->first);
-
-			ret = true;
-		} else { // not worth it
-			//cout << bucket_ct << ": can't do it: " << show(s) << " offset: " << offset << endl;
-			//exit(5);
-			dic.erase(f);
-			write_literal(s);
-			ret = false;
-		}
-		
-		//update_queue(f);
-		block_mode(true);
-
-		return ret;
-	}
-	
 	void close()
 	{
 		out_file.flush();
-		//write_header();
 		out_file.close();
 	}
 	
@@ -868,66 +337,162 @@ public:
 
 template <int dict_size = DEFAULT_DICT_SIZE, bool disp = false>
 class lzns_inflate {
-
+	
 	bitfile<false> inp_file;
 	bitfile<true> out_file;
 	bitfile<false> orig_file;
-	vector<string> bucket;
 	int bucket_ct;
+	int char_ct;
+	string data[2];
+	int data_bank;
+	vector<int> index;
 	
 public:
 	
 	lzns_inflate(
-		string p_inp_file,
-		string p_out_file,
-		string p_orig_file)
+				 string p_inp_file,
+				 string p_out_file,
+				 string p_orig_file)
 	{
+		data[0].resize(dict_size);
+		data[1].resize(dict_size);
+
+		index.resize(dict_size + 1);
+		
 		bucket_ct = 0;
+		char_ct = 0;
+		data_bank = 0;
 		
 		inp_file.open(p_inp_file);
 		out_file.open(p_out_file);
 		orig_file.open(p_orig_file);
-
-		bucket.resize(dict_size);
 		
 		inflate();
 		close();
 	}
 	
-	void advance_bucket()
+	int other_bank(int bank = -1)
 	{
-		bucket_ct++;
+		if (bank >= 0) {
+			return int(!bank);
+		} else {
+			return int(!data_bank);
+		}
 	}
 	
-	void out_literal(int n)
+	void output()
 	{
-		for (int i = 0; i < n; ++i) {
-			char c = inp_file.get_byte();
-			bucket[bucket_ct % dict_size] = string(1, c);
-			if (disp)
-				cout << bucket_ct << ": literal: " << show(c) << endl;
-			
+		out_file.put_void((char*)data[data_bank].data(), char_ct);
+		//cout << "	writing: " << show(data.substr(0, char_ct)) << endl;
+		
+		//cout << "writing" << endl;
+		
+		/*
+		cout << "	";
+		
+		int a, b;
+		for (int i = 0; i < dict_size; ++i) {
+			a = index[i];
+			b = index[i + 1];
+			cout << "[" << a << "]" << show(data[data_bank].substr(a, b - a));
+		}
+		cout << " [" << b << "]" << endl;
+		*/
+		
+		data_bank = other_bank();
+	}
+	
+	inline void resize(int len)
+	{
+		if (char_ct + len > data[data_bank].size()) {
+			data[data_bank].resize(data[data_bank].size() + data[data_bank].size() / 2);
+		}
+	}
+	
+	inline void update_buffer(string str)
+	{
+		resize((int)str.length());
+		memcpy((char*)data[data_bank].data() + char_ct, (char*)str.data(), str.length());
+	}
+	
+	void write_index()
+	{
+		index[bucket_ct] = char_ct;
+	}
+	
+	void store_bucket(string str)
+	{
+		//write_index();
+		update_buffer(str);
+		
+		bucket_ct++;
+		char_ct += str.length();
+
+		if (bucket_ct >= dict_size) {
 			output();
-			advance_bucket();
+			write_index();
+			bucket_ct = 0;
+			char_ct = 0;
+		}
+	}
+	
+	string ref_bucket(int v)
+	{
+		int os = v>> 1;
+		int bucket = (bucket_ct - os) & (dict_size - 1);
+		int tmp = bucket_ct;
+		int l = v & 1;
+		int a = index[bucket];
+		int b = index[bucket + 1];
+		int len = b - a;
+		string wrap;
+		int bank;
+		
+		if (bucket < bucket_ct) {
+			bank = data_bank;
+		} else {
+			bank = other_bank();
+		}
+		
+		//cout << bucket_ct << ": " << " from " << bucket << " [" << a << ", " << b << "] ";
+
+		assert(v > 1);
+		assert(len > 0);
+
+		if (bucket < dict_size - 1 || os == 1) {
+			len += l;
+		} else {
+			wrap = data[other_bank(bank)].substr(0, l);
+		}
+		
+		if (os == 1) {
+			return data[bank].substr(a, len - l) + data[bank].substr(a, l);
+		} else {
+			return data[bank].substr(a, len) + wrap;
 		}
 	}
 	
 	void out_ref1(int v)
 	{
-		int off = bucket_ct - v / 2;
-		int len = v & 1;
+		write_index();
+
+		string ref = ref_bucket(v);
 		
-		bucket[bucket_ct % dict_size] = bucket[off % dict_size];
+		//cout << " ref: " << show(ref) << endl;
+
+		store_bucket(ref);
+	}
+	
+	void out_literal(const int len)
+	{
+		string lit = inp_file.get_string(len);
 		
-		if (len) {
-			bucket[bucket_ct % dict_size] += bucket[(off + 1) % dict_size].substr(0, 1);
+		//cout << bucket_ct << " - literal: " << show(lit) << endl;
+		
+		for (int i = 0; i < len; ++i) {
+			write_index();
+			store_bucket(lit.substr(i, 1));
 		}
-		
-		if (disp)
-			cout << bucket_ct << ": offset: " << off << " len: " << 1 + len << " " << show(bucket[bucket_ct % dict_size]) << endl;
-		
-		output();
-		advance_bucket();
 	}
 	
 	bool out_ref(int n)
@@ -937,7 +502,7 @@ public:
 		}
 		
 		int v = inp_file.get_varint();
-
+		
 		if (v > 0) {
 			out_ref1(v);
 			return true;
@@ -946,29 +511,13 @@ public:
 		}
 	}
 	
-	void output()
-	{
-		string ou = bucket[bucket_ct % dict_size];
-		string orig = orig_file.get_string(ou.length());
-		
-		if (ou == orig) {
-			if (disp)
-				cout << "output: " << show(ou) << endl;
-			out_file.put_string(ou);
-		} else {
-			cout << "Ooops";
-			cout << bucket_ct << ": orig: " << show(orig) << " ou: " << show(ou) << endl;
-			getchar();
-		}
-	}
-	
 	void inflate()
 	{
 		bool cont = true;
-
+		
 		while (cont) {
 			int block = inp_file.get_byte();
-
+			
 			if (block >= 128) { // N offsets, 1 literal
 				block -= 128;
 				cont = out_ref(block);
@@ -982,100 +531,15 @@ public:
 		}
 	}
 	
-	void inflate_orig()
-	{
-		//long long len = inp_file.get_qword();
-		int str_len;
-		bool cont = true;
-		
-		for (int b = 0; cont; ++b) {
-			if (inp_file.get_bit()) { // reference
-				int n = inp_file.get_varint(str_len);
-				
-				if (n <= 0) {
-					cout << "[exit signal]" << endl;
-					cont = false;
-				} else {
-					int pos = b - n;
-					bucket[b % dict_size] = bucket[pos % dict_size];
-					
-					if (bucket[pos % dict_size].size() == 1 || inp_file.get_bit()) {
-						bucket[b % dict_size] += string(1, bucket[(pos + 1) % dict_size][0]);
-						if (disp)
-							cout << b << ":		   create: " << show(bucket[b % dict_size]) << " @ " << pos << ", " << n << endl;
-					} else {
-						if (disp)
-							cout << b << ":			   	copy: " << show(bucket[b % dict_size]) << " @ " << pos << ", " << n << endl;
-					}
-				}
-			} else { // literal byte
-				bucket[b % dict_size] = string(1, inp_file.get_byte());
-				if (disp)
-					cout << b << ":	 literal: " << show(bucket[b % dict_size]) << endl;
-			}
-			
-			if (cont) {
-				string ou = bucket[b % dict_size];
-				string orig = orig_file.get_string(ou.length());
-				//if (disp)
-				//	cout << b << ": orig: " << show(orig) << " ou: " << show(ou) << endl;
-				
-				if (ou == orig) {
-					out_file.put_string(ou);
-				} else {
-					cout << "Ooops";
-					cout << b << ": orig: " << show(orig) << " ou: " << show(ou) << endl;
-					getchar();
-				}
-				
-				if (disp)
-					cout << endl;
-			}
-		}
-	}
-	
-	void inflate2()
-	{
-		long long len = inp_file.get_qword();
-		
-		for (int b = 0; b < len; ++b) {
-			if (inp_file.get_bit()) { // literal byte
-				bucket[b & 0xffff] = string(1, inp_file.get_byte());
-				//cout << "b:    " << b << endl;
-				//cout << "literal: '" << bucket[b & 0xffff] << "'" << endl;
-				//cout << endl;
-			} else { // reference
-				int pos = b - inp_file.get_varint();
-				string bu = bucket[pos & 0xffff];
-				bucket[b & 0xffff] = bu;
-				
-				//cout << "b:    " << b << endl;
-				//cout << "pos: " << pos << endl;
-				if (bu.length() == 1) {
-					//cout << "lk - 1: '" << bucket[(pos - 1) & 0xffff] << "'" << endl;
-				}
-				//cout << "lk - 0: '" << bu << "'" << endl;
-				//cout << endl;
-				
-				if (bu.length() == 1) {
-					bucket[b & 0xffff] = bucket[(pos - 1) & 0xffff] + bu;//bucket[b & 0xffff];
-				}
-			}
-			
-			//cout << bucket[b & 0xffff];
-			out_file.put_string(bucket[b & 0xffff]);
-		}
-	}
-	
 	void close()
 	{
+		output();
 		inp_file.close();
 		out_file.close();
 	}
 	
 	~lzns_inflate()
 	{
-		close();
 	}
 };
 

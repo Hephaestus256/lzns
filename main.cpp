@@ -14,13 +14,15 @@
 int main(int argc, const char * argv[]) {
 	
 	string in_ext;
-	string file = "COTTAGE"; in_ext = "bmp";
+	//string file = "COTTAGE"; in_ext = "bmp";
 	//string file = "CLOWN"; in_ext = "bmp";
 	//string file = "ANGELFISH"; in_ext = "bmp";
 	//string file = "ASTRONUT"; in_ext = "bmp";
 	//string file = "TUT"; in_ext = "bmp";
 
-	//string file = "Diaspora - text"; in_ext = "txt";
+	string file = "Diaspora - text"; in_ext = "txt";
+	//string file = "Summary - text"; in_ext = "txt";
+	//string file = "rep_test2"; in_ext = "txt";
 	//string file = "canterbury_corpus/asyoulik"; in_ext = "txt";
 	//string file = "canterbury_corpus/plrabn12"; in_ext = "txt";
 	//string file = "canterbury_corpus/kennedy"; in_ext = "xls";
@@ -38,8 +40,8 @@ int main(int argc, const char * argv[]) {
 	//string file = "rain_spain"; in_ext = "txt";
 	//string file = "misc1";
 	
-	string ou_ext = "lzn2";
-	const int dict_size = 1024 * 1024 * 2;
+	string ou_ext = "lzn3";
+	const int dict_size = 32 * 1024;
 	
 	cout << "deflating '" + file + "' ..." << endl;
 	
@@ -55,7 +57,7 @@ int main(int argc, const char * argv[]) {
 		return 3;
 	
 	//return 0;
-	
+	getchar();
 	cout << "inflating..." << endl;
 	
 	lzns_inflate<dict_size, false> inflate(
@@ -63,6 +65,10 @@ int main(int argc, const char * argv[]) {
 		"/Users/hephaestus/Desktop/test_files/" + file + "_out" + in_ext,
 		"/Users/hephaestus/Desktop/test_files/" + file + in_ext
 	);
+	
+	cout << "done." << endl;
+	
+	//inflate.show_buffer();
 	
 	cout << endl;
 	return 0;
