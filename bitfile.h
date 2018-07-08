@@ -19,7 +19,7 @@ template <bool write = false>
 class bitfile {
 	
 	fstream file;
-	int size;
+	size_t size;
 	byte_bits bb;
 	string queued;
 	
@@ -62,7 +62,7 @@ public:
 		file.open(file_name, ios::ate | ios::binary	 | read_write);
 		
 		if (!write) {
-			size = (int)file.tellg();
+			size = file.tellg();
 			rewind();
 		}
 		
@@ -90,9 +90,9 @@ public:
 		return ret;
 	}
 	
-	unsigned long long get_qword()
+	unsigned long get_qword()
 	{
-		unsigned long long ret;
+		unsigned long ret;
 		file.read((char*)&ret, sizeof(ret));
 		return ret;
 	}
@@ -105,17 +105,17 @@ public:
 		return bb.get_bit();
 	}
 	
-	int get_varint()
+	long get_varint()
 	{
 		varint v;
 		
 		v.init();
 		while (v.var_to_int(get_byte()));
 		
-		return (int)v.get_int();
+		return (long)v.get_int();
 	}
 	
-	int get_varint(int& len)
+	long get_varint(int& len)
 	{
 		varint v;
 		
@@ -124,7 +124,7 @@ public:
 			len++;
 		}
 		
-		return (int)v.get_int();
+		return (long)v.get_int();
 	}
 
 	string get_string(size_t len)
@@ -136,6 +136,16 @@ public:
 		}
 		
 		return ret;
+	}
+	
+	void get_void(char* dest, size_t len)
+	{
+		file.read(dest, len);
+	}
+	
+	void put_void(char* source, size_t len)
+	{
+		file.write(source, len);
 	}
 	
 	void put_string(const string s)
@@ -186,7 +196,7 @@ public:
 		}
 	}
 
-	void put_varint(int i)
+	void put_varint(long i)
 	{
 		string s = varint::int_to_string(i);
 		
@@ -219,7 +229,7 @@ public:
 		file.close();
 	}
 	
-	int get_size()
+	size_t get_size()
 	{
 		return size;
 	}
