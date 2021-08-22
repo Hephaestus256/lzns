@@ -1,2 +1,2 @@
 # lzns
-Experiments with LZ-based data compression techniques.  O(n) compression with minimal overhead for length.
+Experiment with LZ77/78 hybrid data compression techniques.  O(1) compression/decompression with 1-bit length.
